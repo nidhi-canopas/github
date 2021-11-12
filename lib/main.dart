@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/widgets.dart';
+import 'package:github/user_info.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
@@ -18,15 +19,6 @@ class Github extends StatelessWidget {
     return MaterialApp(
       title: 'Github',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.green,
       ),
       home: const GitHubUserScreen()
@@ -50,7 +42,7 @@ class _GitHubUserScreenState extends State<GitHubUserScreen> {
   final int defaultUsersPerPageCount = 50;
   late List<User> _users;
   final int _nextPageThreshold = 5;
-  late int _skip = 0;
+  late int _userId;
   @override
   void initState() {
     super.initState();
@@ -60,6 +52,7 @@ class _GitHubUserScreenState extends State<GitHubUserScreen> {
     _error = false;
     _loading = true;
     _users = [];
+    _userId = 1;
     fetchUsers();
   }
 
@@ -95,7 +88,7 @@ class _GitHubUserScreenState extends State<GitHubUserScreen> {
             ));
       }
     } else {
-      return ListView.builder(
+      return ListView.separated(
           itemCount: _users.length + (_hasMore ? 1 : 0),
           itemBuilder: (context, index) {
             if (index == _users.length - _nextPageThreshold) {
@@ -126,43 +119,36 @@ class _GitHubUserScreenState extends State<GitHubUserScreen> {
               }
             }
             final User user = _users[index];
-            return Card(
-              child: Column(
-                children: <Widget>[
-                  Image.network(
-                    user.avatarUrl,
-                    fit: BoxFit.fitWidth,
-                    width: double.infinity,
-                    height: 160,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(user.username,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
-                  ),
-                ],
-              ),
+            return ListTile(
+              leading: Image.network(user.avatarUrl),
+              title: Text(user.username),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => UserInfo(
+                      user_name: user.username,
+                    ),),);
+              },
             );
-          });
+          }, separatorBuilder: (BuildContext context, int index) {
+            return Divider(color: Colors.black);
+      },);
     }
     return Container();
   }
 
   Future<void> fetchUsers() async {
     try {
-      log("page number $_pageNumber");
-      log("next page threshold $_nextPageThreshold");
       final response = await http.get(
-          Uri.parse("https://api.github.com/users?page=$_pageNumber&per_page=$_perPage"));
-      List<User> fetchedUsers = _pageNumber > 1 ? User.parseList(json.decode(response.body)).sublist(_skip, 49) : User.parseList(json.decode(response.body));
-      // print(fetchedUsers[49]);
+          Uri.parse("https://api.github.com/users?per_page=$_perPage&since=$_userId"));
+      List<User> fetchedUsers = User.parseList(json.decode(response.body));
       setState(() {
         _hasMore = fetchedUsers.length == defaultUsersPerPageCount;
         _loading = false;
         _pageNumber = _pageNumber + 1;
-        _skip = _skip + 50;
         _users.addAll(fetchedUsers);
+        _userId = fetchedUsers[fetchedUsers.length - 1].id;
       });
     } catch (e) {
       setState(() {
@@ -173,11 +159,12 @@ class _GitHubUserScreenState extends State<GitHubUserScreen> {
   }  }
 
 class User {
+  final int id;
   final String username;
   final String avatarUrl;
-  User(this.username, this.avatarUrl);
+  User(this.id, this.username, this.avatarUrl);
   factory User.fromJson(Map<String, dynamic> json) {
-    return User(json["login"], json["avatar_url"]);
+    return User(json["id"], json["login"], json["avatar_url"]);
   }
   static List<User> parseList(List<dynamic> list) {
     return list.map((i) => User.fromJson(i)).toList();
