@@ -63,6 +63,7 @@ class _GitHubUserScreenState extends State<GitHubUserScreen> {
       body: getBody(),
     );
   }
+
   Widget getBody() {
     if (_users.isEmpty) {
       if (_loading) {
@@ -127,7 +128,7 @@ class _GitHubUserScreenState extends State<GitHubUserScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => UserInfo(
-                      user_name: user.username,
+                      userName: user.username,
                     ),),);
               },
             );
